@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Conference Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#16213A; --ink-soft:#4A5470; --ink-mute:#8A91A6;
+  --paper:#FAFAF7; --card:#FFFFFF; --line:#E6E5DE; --line-strong:#CFCEC5;
+  --mark:#FFD84D; --mark-soft:#FFF3C4; --mark-ink:#6B5300;
+  --warn:#B45309; --warn-bg:#FEF3E2; --warn-line:#F5C97B;
+  --ok:#166534; --ok-bg:#E9F5EC;
+  --bad:#B91C1C; --bad-bg:#FDECEC;
+  --t-design:#EEEDFE; --t-design-ink:#3C3489;
+  --t-eng:#E1F5EE; --t-eng-ink:#085041;
+  --t-product:#FAECE7; --t-product-ink:#712B13;
+  --t-ai:#FBEAF0; --t-ai-ink:#72243E;
+  --t-other:#F1EFE8; --t-other-ink:#444441;
+  --radius:10px;
+}
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{background:#EDECE6; font-family:'Inter',sans-serif; color:var(--ink); font-size:15px; line-height:1.5;}
+#shell{max-width:480px; margin:0 auto; min-height:100dvh; background:var(--paper); display:flex; flex-direction:column; position:relative; box-shadow:0 0 0 1px var(--line);}
+h1,h2,h3,.grotesk{font-family:'Space Grotesk',sans-serif; letter-spacing:-0.01em;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+button{font-family:inherit; font-size:inherit; border:none; background:none; cursor:pointer; color:inherit;}
+input,textarea,select{font-family:inherit; font-size:15px; color:var(--ink); background:var(--card); border:1px solid var(--line-strong); border-radius:8px; padding:9px 12px; width:100%;}
+input:focus,textarea:focus,select:focus{outline:none; border-color:var(--ink); box-shadow:0 0 0 3px rgba(22,33,58,.08);}
+textarea{resize:vertical; min-height:160px; font-size:13px; font-family:'IBM Plex Mono',monospace; line-height:1.6;}
+.screen{display:none; flex:1; flex-direction:column;}
+.screen.active{display:flex;}
+header.app{padding:calc(env(safe-area-inset-top) + 18px) 20px 12px; display:flex; align-items:baseline; justify-content:space-between; gap:10px;}
+header.app h1{font-size:19px; font-weight:700;}
+header.app h1 span{background:linear-gradient(transparent 55%, var(--mark) 55%);}
+.sub{font-size:12.5px; color:var(--ink-mute);}
+main{flex:1; overflow-y:auto; padding-bottom:88px;}
+nav#tabs{position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:var(--card); border-top:1px solid var(--line); display:flex; padding-bottom:env(safe-area-inset-bottom); z-index:40;}
+nav#tabs button{flex:1; padding:10px 0 8px; display:flex; flex-direction:column; align-items:center; gap:2px; font-size:11px; color:var(--ink-mute); font-weight:500;}
+nav#tabs button.on{color:var(--ink);}
+nav#tabs button.on .glyph{background:var(--mark-soft);}
+nav#tabs .glyph{width:38px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center;}
+nav#tabs svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:600; font-size:14.5px; border-radius:10px; padding:12px 18px; transition:transform .08s;}
+.btn:active{transform:scale(.98);}
+.btn.primary{background:var(--ink); color:#fff; width:100%;}
+.btn.ghost{border:1px solid var(--line-strong); background:var(--card); width:100%;}
+.btn.small{padding:7px 12px; font-size:13px; width:auto;}
+.chip{font-size:11.5px; font-weight:500; padding:3px 10px; border-radius:99px; white-space:nowrap;}
+.daybar{display:flex; gap:8px; padding:10px 20px 12px; overflow-x:auto; position:sticky; top:0; background:var(--paper); z-index:10; border-bottom:1px solid var(--line);}
+.daybar button{font-family:'Space Grotesk',sans-serif; font-weight:500; font-size:13.5px; padding:7px 14px; border-radius:99px; border:1px solid var(--line-strong); background:var(--card); color:var(--ink-soft); white-space:nowrap;}
+.daybar button.on{background:var(--ink); color:#fff; border-color:var(--ink);}
+.slot{display:flex; gap:0; padding:0 20px; margin-top:18px;}
+.rail{width:56px; flex-shrink:0; padding-top:2px;}
+.rail .t1{font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:500;}
+.rail .t2{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-mute);}
+.slotcards{flex:1; min-width:0; display:flex; flex-direction:column; gap:8px; border-left:2px solid var(--line); padding-left:14px;}
+.par{font-size:11px; color:var(--ink-mute); font-weight:500; letter-spacing:.04em; text-transform:uppercase;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:11px 12px; display:flex; gap:10px; align-items:flex-start; position:relative;}
+.card.picked{background:var(--mark-soft); border-color:var(--mark);}
+.card .body{flex:1; min-width:0; cursor:pointer;}
+.card .title{font-size:14px; font-weight:600; line-height:1.35;}
+.card .meta{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+.card .flagmark{color:var(--warn); font-size:11.5px; font-weight:600; margin-top:3px;}
+.pick{width:34px; height:34px; border-radius:99px; border:1.5px solid var(--line-strong); background:var(--card); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:20px; line-height:1; color:var(--ink-soft); transition:transform .1s;}
+.pick:active{transform:scale(.9);}
+.picked .pick{background:var(--ink); border-color:var(--ink); color:var(--mark); font-size:15px;}
+.banner{margin:12px 20px 0; border-radius:var(--radius); padding:11px 14px; font-size:13px; display:flex; gap:10px; align-items:center; justify-content:space-between;}
+.banner.warn{background:var(--warn-bg); border:1px solid var(--warn-line); color:var(--warn);}
+.banner button{font-weight:600; text-decoration:underline; color:inherit; font-size:13px; flex-shrink:0;}
+.sheetwrap{position:fixed; inset:0; background:rgba(15,20,35,.45); z-index:50; display:none; align-items:flex-end; justify-content:center;}
+.sheetwrap.open{display:flex;}
+.sheet{background:var(--paper); width:100%; max-width:480px; max-height:88dvh; overflow-y:auto; border-radius:18px 18px 0 0; padding:10px 20px calc(env(safe-area-inset-bottom) + 20px);}
+.handle{width:38px; height:4px; border-radius:99px; background:var(--line-strong); margin:2px auto 14px;}
+.field label{display:block; font-size:12px; font-weight:600; color:var(--ink-soft); margin:12px 0 5px;}
+.notes li{margin-left:18px; font-size:14px; padding:3px 0;}
+.noterow{display:flex; gap:8px; margin-top:8px;}
+.empty{padding:56px 32px; text-align:center; color:var(--ink-mute);}
+.empty h3{color:var(--ink); font-size:17px; margin-bottom:6px;}
+.conflict{font-size:11px; font-weight:600; color:var(--warn); background:var(--warn-bg); border:1px solid var(--warn-line); padding:2px 8px; border-radius:99px;}
+.listrow{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:flex-start;}
+.dayhead{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; padding:20px 0 4px;}
+.parsebox{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px;}
+.steps{list-style:none; margin-top:14px;}
+.steps li{display:flex; gap:10px; align-items:center; padding:5px 0; font-size:13.5px; color:var(--ink-mute);}
+.steps li.done{color:var(--ink);}
+.steps li.doing{color:var(--ink); font-weight:500;}
+.dot{width:8px; height:8px; border-radius:99px; background:var(--line-strong); flex-shrink:0;}
+.done .dot{background:var(--ok);}
+.doing .dot{background:var(--mark); animation:pulse 1s infinite;}
+@keyframes pulse{50%{opacity:.35;}}
+.toast{position:fixed; bottom:96px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; font-size:13.5px; padding:9px 18px; border-radius:99px; z-index:60; opacity:0; transition:opacity .2s; pointer-events:none; white-space:nowrap;}
+.toast.show{opacity:1;}
+.flagcard{background:var(--warn-bg); border:1px solid var(--warn-line); border-radius:10px; padding:10px 12px; margin:10px 0; font-size:12.5px; color:var(--warn);}
+.srconly{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important;}}
+</style>
+</head>
+<body>
+<div id="shell">
+
+<!-- ============ ADD SCREEN ============ -->
+<div class="screen active" id="scr-add">
+  <header class="app">
+    <h1><span>Conference Companion</span></h1>
+  </header>
+  <main style="padding:8px 20px 88px;">
+    <p class="sub" style="margin-bottom:18px;">Paste any conference schedule. Get a personal agenda you can actually follow.</p>
+    <div class="parsebox" id="inputbox">
+      <label for="rawurl" style="font-size:13px; font-weight:600;">Schedule link</label>
+      <p class="sub" style="margin:2px 0 8px;">Paste the URL of the conference program page.</p>
+      <input id="rawurl" type="url" placeholder="https://conference.com/program" style="margin-bottom:14px;">
+      <label for="rawtext" style="font-size:13px; font-weight:600;">Or paste the schedule text</label>
+      <p class="sub" style="margin:2px 0 8px;">Copy everything from the programme — messy formatting is fine.</p>
+      <textarea id="rawtext" placeholder="Day 1 — Monday&#10;9:00am Opening keynote, Main Hall — Ava Chen&#10;10:15am Design systems at scale (Studio 1)…"></textarea>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button class="btn primary" style="flex:1;" onclick="startParse()">Read my schedule</button>
+      </div>
+      <button class="btn ghost" style="margin-top:8px;" onclick="loadSample()">Load TO26: Firebrand — Thu 16 Jul</button>
+    </div>
+    <div class="parsebox" id="parsebox" style="display:none;">
+      <h3 style="font-size:16px;">Reading your schedule</h3>
+      <ul class="steps" id="steps">
+        <li id="st1"><span class="dot"></span>Scanning for days and times</li>
+        <li id="st2"><span class="dot"></span>Finding sessions, rooms and speakers</li>
+        <li id="st3"><span class="dot"></span>Detecting tracks</li>
+        <li id="st4"><span class="dot"></span>Checking for anything unclear</li>
+      </ul>
+      <p class="sub" id="parsenote" style="margin-top:12px;"></p>
+    </div>
+  </main>
+</div>
+
+<!-- ============ FULL SCHEDULE ============ -->
+<div class="screen" id="scr-full">
+  <header class="app">
+    <div>
+      <h1 id="confname"><span>Schedule</span></h1>
+      <p class="sub" id="confmeta"></p>
+    </div>
+    <button class="btn small ghost" onclick="resetAll()">New</button>
+  </header>
+  <div id="flagbanner"></div>
+  <div class="daybar" id="daybar-full"></div>
+  <main id="fullbody"></main>
+</div>
+
+<!-- ============ MY PLAN ============ -->
+<div class="screen" id="scr-plan">
+  <header class="app">
+    <div>
+      <h1><span>My plan</span></h1>
+      <p class="sub" id="planmeta"></p>
+    </div>
+    <button class="btn small ghost" onclick="exportICS()">Export .ics</button>
+  </header>
+  <main id="planbody" style="padding:0 20px 88px;"></main>
+</div>
+
+<!-- ============ TABS ============ -->
+<nav id="tabs" style="display:none;">
+  <button id="tab-full" class="on" onclick="showScreen('full')">
+    <span class="glyph"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span>Schedule
+  </button>
+  <button id="tab-plan" onclick="showScreen('plan')">
+    <span class="glyph"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg></span>My plan
+  </button>
+  <button id="tab-add" onclick="showScreen('add')">
+    <span class="glyph"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>Add
+  </button>
+</nav>
+
+<!-- ============ SESSION SHEET ============ -->
+<div class="sheetwrap" id="sheetwrap" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ================= STATE ================= */
+let conf = null;        // {name, days:[{label, date}], sessions:[...]}
+let picked = new Set(); // session ids
+let notes = {};         // id -> [strings]
+let curDayFull = 0, curScreen = 'add';
+let flagFilter = false;
+
+const TRACKS = ['design','eng','product','ai','other'];
+function trackClass(t){
+  const k = (t||'').toLowerCase();
+  if(k.includes('design')||k.includes('ux')) return ['var(--t-design)','var(--t-design-ink)'];
+  if(k.includes('eng')||k.includes('dev')||k.includes('tech')) return ['var(--t-eng)','var(--t-eng-ink)'];
+  if(k.includes('product')||k.includes('business')) return ['var(--t-product)','var(--t-product-ink)'];
+  if(k.includes('ai')||k.includes('ml')||k.includes('data')) return ['var(--t-ai)','var(--t-ai-ink)'];
+  return ['var(--t-other)','var(--t-other-ink)'];
+}
+function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 1800);
+}
+function toMin(t){
+  const m = (t||'').match(/(\d{1,2}):?(\d{2})?\s*(am|pm)?/i);
+  if(!m) return 0;
+  let h = +m[1], mm = +(m[2]||0);
+  const ap = (m[3]||'').toLowerCase();
+  if(ap==='pm' && h<12) h+=12;
+  if(ap==='am' && h===12) h=0;
+  if(!ap && h<8) h+=12;
+  return h*60+mm;
+}
+
+/* ================= SAMPLE DATA ================= */
+const SAMPLE = {"name": "TO26: Firebrand", "days": [{"label": "Thu 16 Jul"}], "sessions": [{"d": 0, "start": "8:00 am", "end": "9:00 am", "title": "Registration and networking", "room": "Foyer", "speaker": "", "track": "Break", "type": "Break", "desc": "Grab your badge, find the coffee."}, {"d": 0, "start": "9:00 am", "end": "9:05 am", "title": "Welcome to Country", "room": "Main stage", "speaker": "", "track": "Plenary", "type": "Opening", "desc": "Acknowledgement of Traditional Owners."}, {"d": 0, "start": "9:05 am", "end": "9:20 am", "title": "Hey, hi, hello!", "room": "Main stage", "speaker": "Leeling Bristow (The Outlook), Malcolm Leung (SEEK)", "track": "Plenary", "type": "Opening", "desc": "Your hosts open the day."}, {"d": 0, "start": "9:20 am", "end": "9:35 am", "title": "Welcome address", "room": "Main stage", "speaker": "Lord Mayor Nicholas Reece, City of Melbourne", "track": "Plenary", "type": "Opening", "desc": "Welcome from the City of Melbourne."}, {"d": 0, "start": "9:35 am", "end": "9:55 am", "title": "Back to product as a team sport", "room": "Main stage", "speaker": "Chase Wilson, Figma", "track": "Product", "type": "Keynote", "desc": "Director of AI & Developer Marketing on collaborative product work."}, {"d": 0, "start": "9:55 am", "end": "10:15 am", "title": "Tools create possibility. Design creates conviction.", "room": "Main stage", "speaker": "Ernest Hui, Cathay Pacific", "track": "Design", "type": "Keynote", "desc": "Head of Design on what tools can and cannot do."}, {"d": 0, "start": "10:15 am", "end": "10:35 am", "title": "Faint traces: designing for the human signal in the age of AI agents", "room": "Main stage", "speaker": "Angela Bliss, NAB", "track": "AI", "type": "Keynote", "desc": "Head of Behavioural Science on keeping humans legible to agents."}, {"d": 0, "start": "10:35 am", "end": "11:05 am", "title": "Morning tea", "room": "Foyer", "speaker": "", "track": "Break", "type": "Break", "desc": ""}, {"d": 0, "start": "11:05 am", "end": "11:25 am", "title": "Deciding what not to do", "room": "Stage 1", "speaker": "Ivan Seow, ThoughtSpot", "track": "Product", "type": "Talk", "desc": "Senior Director of Product Marketing on ruthless prioritisation."}, {"d": 0, "start": "11:05 am", "end": "11:25 am", "title": "Design like a cartel boss", "room": "Stage 2", "speaker": "Sarah Patterson, The Good Cartel", "track": "Design", "type": "Talk", "desc": "Principal on running design with conviction."}, {"d": 0, "start": "11:05 am", "end": "11:35 am", "title": "Product deep-dive: Notion", "room": "Product Showcases", "speaker": "Sarah Collins, Notion", "track": "Showcase", "type": "Showcase", "desc": "Customer Success walkthrough of Notion."}, {"d": 0, "start": "11:25 am", "end": "11:45 am", "title": "The hardest part of AI isn't the AI", "room": "Stage 1", "speaker": "Enoch Tan, Culture Amp", "track": "AI", "type": "Talk", "desc": "Director of Design on the organisational side of AI."}, {"d": 0, "start": "11:25 am", "end": "11:45 am", "title": "The cost of convenience", "room": "Stage 2", "speaker": "Ying Wang, Bupa", "track": "Design", "type": "Talk", "desc": "Senior Strategic Designer on what convenience trades away."}, {"d": 0, "start": "11:35 am", "end": "12:10 pm", "title": "Product deep-dive: Figma", "room": "Product Showcases", "speaker": "Michel Ferreira, Figma", "track": "Showcase", "type": "Showcase", "desc": "Designer Advocate walkthrough of Figma."}, {"d": 0, "start": "11:45 am", "end": "12:10 pm", "title": "Taste can't be prompted: zero to one. Not zero to done.", "room": "Stage 1", "speaker": "Jason Demetillo, Independent", "track": "Design", "type": "Talk", "desc": "On taste as the unpromptable ingredient."}, {"d": 0, "start": "11:45 am", "end": "12:10 pm", "title": "A day in the life of a Design Engineer", "room": "Stage 2", "speaker": "Joshua Crowley, Envato", "track": "Design", "type": "Talk", "desc": "What the hybrid craft actually looks like day to day."}, {"d": 0, "start": "12:10 pm", "end": "1:10 pm", "title": "Lunch", "room": "Foyer", "speaker": "", "track": "Break", "type": "Break", "desc": "Optional sessions run from 12:20."}, {"d": 0, "start": "12:20 pm", "end": "1:00 pm", "title": "Powerpoint Karaoke", "room": "Stage 1", "speaker": "Scott Harrison, Design Futures", "track": "Social", "type": "Optional", "desc": "Improvised decks over lunch. Chaos guaranteed.", "flag": "End time not listed — assumed it wraps before the 1:10 pm block"}, {"d": 0, "start": "12:20 pm", "end": "1:00 pm", "title": "Off-on-program gems", "room": "Stage 2", "speaker": "Abbie Brett (Bupa), Adrian Crosland (Redcat), Rusty Benson (Intopia), Jess Price (Paradigm Makers)", "track": "Social", "type": "Optional", "desc": "Short off-program talks over lunch.", "flag": "End time not listed — assumed it wraps before the 1:10 pm block"}, {"d": 0, "start": "1:10 pm", "end": "1:30 pm", "title": "Session TBC — Erin Rogers", "room": "Stage 1", "speaker": "Erin Rogers, David Jones", "track": "Product", "type": "Talk", "desc": "Product Owner at David Jones.", "flag": "Title listed as TBC on the program"}, {"d": 0, "start": "1:10 pm", "end": "1:30 pm", "title": "Accessibility is AI readiness", "room": "Stage 2", "speaker": "Briar Harte, Founder", "track": "AI", "type": "Talk", "desc": "Why accessible products are AI-ready products."}, {"d": 0, "start": "1:10 pm", "end": "1:40 pm", "title": "Embedding insights wherever you work", "room": "Product Showcases", "speaker": "Jaimie Corby, UserTesting", "track": "Showcase", "type": "Showcase", "desc": "Solutions Consultant on insight workflows."}, {"d": 0, "start": "1:30 pm", "end": "1:50 pm", "title": "Research for collaboration", "room": "Stage 1", "speaker": "Elisse Alexander, Telstra", "track": "Design", "type": "Talk", "desc": "Digital Experience Owner on research as a team glue."}, {"d": 0, "start": "1:30 pm", "end": "1:50 pm", "title": "Necessary frictions: a feminist lens on building a 3,000-year product", "room": "Stage 2", "speaker": "Bea Guevara, Guevara & Associates", "track": "Design", "type": "Talk", "desc": "On friction as a feature, not a bug."}, {"d": 0, "start": "1:40 pm", "end": "2:15 pm", "title": "Product deep-dive: ThoughtSpot", "room": "Product Showcases", "speaker": "James Belsey, ThoughtSpot", "track": "Showcase", "type": "Showcase", "desc": "Director of Solutions Engineering APK walkthrough."}, {"d": 0, "start": "1:50 pm", "end": "2:15 pm", "title": "From clicks to conversations: designing AI agents that act", "room": "Stage 1", "speaker": "Catherine Argyle, Deputy", "track": "AI", "type": "Talk", "desc": "Principal PM on agentic product design."}, {"d": 0, "start": "1:50 pm", "end": "2:15 pm", "title": "Emotional by design", "room": "Stage 2", "speaker": "Tom Richards, Hot Lunch", "track": "Design", "type": "Talk", "desc": "Experience designer and artist on feeling in interfaces."}, {"d": 0, "start": "2:25 pm", "end": "2:45 pm", "title": "The biggest mistake you don't know you're making", "room": "Stage 1", "speaker": "Damian Madden, Independent", "track": "Career", "type": "Talk", "desc": "Experience architect and mindset coach."}, {"d": 0, "start": "2:25 pm", "end": "2:45 pm", "title": "Good ideas aren't good enough", "room": "Stage 2", "speaker": "Luke Thomas, Portable", "track": "Product", "type": "Talk", "desc": "Principal Product Strategist on execution over inspiration."}, {"d": 0, "start": "2:25 pm", "end": "3:10 pm", "title": "Product deep-dive: Optimal", "room": "Product Showcases", "speaker": "Ben Deeley, Kara Dallimore (Optimal Workshop)", "track": "Showcase", "type": "Showcase", "desc": "Solutions walkthrough of Optimal Workshop."}, {"d": 0, "start": "2:45 pm", "end": "3:10 pm", "title": "Forget the product. The new production line has room for builders only.", "room": "Stage 1", "speaker": "Cemre Uludag, Employment Hero", "track": "Product", "type": "Talk", "desc": "On what AI-era production lines reward."}, {"d": 0, "start": "2:45 pm", "end": "3:10 pm", "title": "The discipline that forgot to communicate", "room": "Stage 2", "speaker": "Kevin Hui, Director", "track": "Design", "type": "Talk", "desc": "On design's communication problem."}, {"d": 0, "start": "3:10 pm", "end": "3:50 pm", "title": "Afternoon tea", "room": "Foyer", "speaker": "", "track": "Break", "type": "Break", "desc": ""}, {"d": 0, "start": "4:00 pm", "end": "4:20 pm", "title": "Against infinite", "room": "Main stage", "speaker": "Mo Ismail, Heidi", "track": "AI", "type": "Keynote", "desc": "Head of Product on restraint in an age of endless generation."}, {"d": 0, "start": "4:20 pm", "end": "4:40 pm", "title": "Craft isn't dead (but it's getting complicated)", "room": "Main stage", "speaker": "Gareth O'Brien, Buck", "track": "Design", "type": "Keynote", "desc": "Executive Creative Director on craft under new conditions."}, {"d": 0, "start": "4:40 pm", "end": "5:00 pm", "title": "BS at work", "room": "Main stage", "speaker": "James Healy, The Behaviour Boutique", "track": "Career", "type": "Keynote", "desc": "Managing Director on workplace behaviour and nonsense."}, {"d": 0, "start": "5:00 pm", "end": "6:30 pm", "title": "Social wrap-up", "room": "Venue", "speaker": "", "track": "Social", "type": "Social", "desc": "Drinks and networking to close the day."}]};
+
+/* ================= PERSISTENCE ================= */
+function save(){
+  try{ localStorage.setItem('confcomp', JSON.stringify({conf, picked:[...picked], notes})); }catch(e){}
+}
+function restore(){
+  try{
+    const d = JSON.parse(localStorage.getItem('confcomp'));
+    if(d && d.conf && d.conf.sessions){
+      conf = d.conf; picked = new Set(d.picked||[]); notes = d.notes||{};
+      document.getElementById('tabs').style.display = 'flex';
+      showScreen('full');
+    }
+  }catch(e){}
+}
+window.addEventListener('load', restore);
+
+/* ================= NAV ================= */
+function showScreen(s){
+  curScreen = s;
+  document.querySelectorAll('.screen').forEach(el=>el.classList.remove('active'));
+  document.getElementById('scr-'+s).classList.add('active');
+  ['full','plan','add'].forEach(t=>{
+    const b = document.getElementById('tab-'+t);
+    if(b) b.classList.toggle('on', t===s);
+  });
+  if(s==='full') renderFull();
+  if(s==='plan') renderPlan();
+}
+
+/* ================= PARSING ================= */
+function loadSample(){
+  adoptConf(JSON.parse(JSON.stringify(SAMPLE)));
+  toast('TO26 loaded — tap + to pick sessions');
+}
+function adoptConf(c){
+  c.sessions.forEach((s,i)=>{ s.id = 's'+i; });
+  conf = c; picked = new Set(); notes = {}; curDayFull = 0; flagFilter = false; save();
+  document.getElementById('tabs').style.display = 'flex';
+  showScreen('full');
+}
+async function startParse(){
+  const raw = document.getElementById('rawtext').value.trim();
+  const url = (document.getElementById('rawurl')||{value:''}).value.trim();
+  if(!raw && !url){ toast('Paste a link or the schedule text first'); return; }
+  document.getElementById('inputbox').style.display = 'none';
+  const pb = document.getElementById('parsebox'); pb.style.display = 'block';
+  const steps = ['st1','st2','st3','st4'];
+  let si = 0;
+  const tick = setInterval(()=>{
+    steps.forEach((id,i)=>{
+      const el = document.getElementById(id);
+      el.className = i<si ? 'done' : (i===si ? 'doing' : '');
+    });
+    si = Math.min(si+1, steps.length-1);
+  }, 1400);
+  const finish = (parsed)=>{
+    clearInterval(tick);
+    steps.forEach(id=>document.getElementById(id).className='done');
+    setTimeout(()=>adoptConf(parsed), 500);
+    setTimeout(resetAddUI, 900);
+  };
+  const fail = (msg)=>{
+    clearInterval(tick);
+    const note = document.getElementById('parsenote');
+    note.textContent = msg + ' ';
+    const b = document.createElement('button');
+    b.className = 'btn ghost'; b.style.marginTop = '10px'; b.textContent = 'Back';
+    b.onclick = resetAddUI;
+    note.appendChild(document.createElement('br'));
+    note.appendChild(b);
+  };
+  // Path 1: our own server function (handles URLs and text, free AI)
+  try{
+    const r = await fetch('/api/parse', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(url ? {url} : {text: raw})
+    });
+    if(r.ok){
+      const parsed = await r.json();
+      if(parsed && parsed.sessions && parsed.sessions.length){ finish(parsed); return; }
+    }
+  }catch(e){ /* not deployed yet, or offline — try path 2 */ }
+  if(!raw){
+    fail('Couldn\u2019t fetch that link. Check the URL is right, or paste the page text instead.');
+    return;
+  }
+  // Path 2: direct API (works inside Claude previews)
+  try{
+    const prompt = 'Parse this conference schedule into JSON. Respond with ONLY minified JSON, no markdown, no preamble. Shape: {"name":"conference name","days":[{"label":"short day label"}],"sessions":[{"d":dayIndex,"start":"9:00 am","end":"10:00 am","title":"","room":"","speaker":"","track":"","type":"Talk","desc":"one short sentence","flag":"only if something was missing or ambiguous"}]}. Omit flag when confident. If end time is missing, estimate from similar sessions and flag it. Keep desc under 15 words. Schedule:\n\n' + raw.slice(0,6000);
+    const r = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6', max_tokens:1000, messages:[{role:'user',content:prompt}]})
+    });
+    const data = await r.json();
+    const text = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const clean = text.replace(/```json|```/g,'').trim();
+    let parsed;
+    try{ parsed = JSON.parse(clean); }
+    catch(e){
+      const nameM = clean.match(/"name"\s*:\s*"([^"]*)"/);
+      const sess = [];
+      const re = /\{[^{}]*"title"[^{}]*\}/g; let m;
+      while((m = re.exec(clean))){ try{ sess.push(JSON.parse(m[0])); }catch(_){} }
+      if(!sess.length) throw e;
+      const maxD = Math.max(...sess.map(s=>s.d||0));
+      parsed = { name:nameM?nameM[1]:'My conference', days:Array.from({length:maxD+1},(_,i)=>({label:'Day '+(i+1)})), sessions:sess };
+    }
+    if(!parsed.sessions || !parsed.sessions.length) throw new Error('empty');
+    finish(parsed);
+  }catch(err){
+    fail('Couldn\u2019t read that schedule. Try pasting cleaner text, or load TO26 below.');
+  }
+}
+function resetAddUI(){
+  document.getElementById('inputbox').style.display = 'block';
+  document.getElementById('parsebox').style.display = 'none';
+  document.getElementById('parsenote').textContent = '';
+  ['st1','st2','st3','st4'].forEach(id=>document.getElementById(id).className='');
+}
+function resetAll(){
+  if(!confirm('Start over with a new schedule? Your picks and notes will be cleared.')) return;
+  conf = null; picked.clear(); notes = {};
+  try{ localStorage.removeItem('confcomp'); }catch(e){}
+  document.getElementById('tabs').style.display = 'none';
+  document.getElementById('rawtext').value = '';
+  resetAddUI();
+  showScreen('add');
+}
+
+/* ================= FULL SCHEDULE ================= */
+function renderFull(){
+  if(!conf) return;
+  document.getElementById('confname').innerHTML = '<span>'+esc(conf.name||'Schedule')+'</span>';
+  document.getElementById('confmeta').textContent = conf.sessions.length + ' sessions \u00b7 ' + conf.days.length + ' days \u00b7 ' + picked.size + ' picked';
+  const flags = conf.sessions.filter(s=>s.flag);
+  const fb = document.getElementById('flagbanner');
+  fb.innerHTML = flags.length ? `<div class="banner warn"><span>\u26a0\ufe0e ${flags.length} session${flags.length>1?'s':''} need${flags.length>1?'':'s'} a quick check</span><button onclick="flagFilter=!flagFilter;renderFull()">${flagFilter?'Show all':'Review'}</button></div>` : '';
+  const db = document.getElementById('daybar-full');
+  db.innerHTML = conf.days.map((d,i)=>`<button class="${i===curDayFull?'on':''}" onclick="curDayFull=${i};renderFull()">${esc(d.label||('Day '+(i+1)))}</button>`).join('');
+  let sess = conf.sessions.filter(s=>s.d===curDayFull);
+  if(flagFilter) sess = conf.sessions.filter(s=>s.flag);
+  sess.sort((a,b)=>toMin(a.start)-toMin(b.start));
+  const slots = {};
+  sess.forEach(s=>{ const k = flagFilter ? s.d+'|'+s.start : s.start; (slots[k]=slots[k]||[]).push(s); });
+  const body = document.getElementById('fullbody');
+  if(!sess.length){ body.innerHTML = '<div class="empty"><h3>Nothing here</h3><p>No sessions found for this day.</p></div>'; return; }
+  body.innerHTML = Object.keys(slots).map(k=>{
+    const group = slots[k];
+    const first = group[0];
+    return `<div class="slot">
+      <div class="rail"><div class="t1">${esc(first.start.replace(/ /g,''))}</div><div class="t2">${esc((first.end||'').replace(/ /g,''))}</div></div>
+      <div class="slotcards">
+        ${group.length>1?`<div class="par">${group.length} in parallel \u2014 pick one (or more)</div>`:''}
+        ${group.map(cardHTML).join('')}
+      </div>
+    </div>`;
+  }).join('') + '<div style="height:24px"></div>';
+}
+function cardHTML(s){
+  const [bg,fg] = trackClass(s.track);
+  const isPicked = picked.has(s.id);
+  return `<div class="card ${isPicked?'picked':''}" id="card-${s.id}">
+    <div class="body" onclick="openSheet('${s.id}')">
+      <div style="display:flex; gap:8px; align-items:flex-start; justify-content:space-between;">
+        <div class="title">${esc(s.title)}</div>
+        <span class="chip" style="background:${bg}; color:${fg};">${esc(s.track||'General')}</span>
+      </div>
+      <div class="meta">${esc(s.room||'')}${s.speaker?' \u00b7 '+esc(s.speaker):''}${s.type?' \u00b7 '+esc(s.type):''}${notes[s.id]&&notes[s.id].length?' \u00b7 \u270e '+notes[s.id].length+' note'+(notes[s.id].length>1?'s':''):''}</div>
+      ${s.flag?`<div class="flagmark">\u26a0\ufe0e ${esc(s.flag)}</div>`:''}
+    </div>
+    <button class="pick" aria-label="${isPicked?'Remove from my plan':'Add to my plan'}" onclick="togglePick('${s.id}')">${isPicked?'\u2713':'+'}</button>
+  </div>`;
+}
+function togglePick(id){
+  if(picked.has(id)){ picked.delete(id); toast('Removed from your plan'); }
+  else{
+    picked.add(id);
+    const s = conf.sessions.find(x=>x.id===id);
+    const clash = conf.sessions.find(x=>x.id!==id && picked.has(x.id) && x.d===s.d && overlaps(x,s));
+    toast(clash ? '\u26a0\ufe0e Overlaps with \u201c'+clash.title.slice(0,26)+'\u2026\u201d \u2014 kept both' : 'Added to your plan');
+  }
+  save();
+  if(curScreen==='full') renderFull(); else renderPlan();
+}
+function overlaps(a,b){
+  return toMin(a.start) < toMin(b.end||b.start)+1 && toMin(b.start) < toMin(a.end||a.start)+1;
+}
+
+/* ================= MY PLAN ================= */
+function renderPlan(){
+  const body = document.getElementById('planbody');
+  const mine = conf ? conf.sessions.filter(s=>picked.has(s.id)) : [];
+  document.getElementById('planmeta').textContent = mine.length + ' session' + (mine.length===1?'':'s') + ' picked';
+  if(!mine.length){
+    body.innerHTML = '<div class="empty"><h3>Nothing picked yet</h3><p>Browse the schedule and tap + on the sessions you want. They\u2019ll line up here as your personal agenda.</p><br><button class="btn ghost" style="width:auto;" onclick="showScreen(\'full\')">Browse the schedule</button></div>';
+    return;
+  }
+  let html = '';
+  conf.days.forEach((d,di)=>{
+    const daySess = mine.filter(s=>s.d===di).sort((a,b)=>toMin(a.start)-toMin(b.start));
+    if(!daySess.length) return;
+    html += `<div class="dayhead">${esc(d.label||('Day '+(di+1)))}</div>`;
+    daySess.forEach((s,i)=>{
+      const clash = daySess.some(o=>o.id!==s.id && overlaps(o,s));
+      const [bg,fg] = trackClass(s.track);
+      html += `<div class="listrow">
+        <div class="rail" style="width:56px;"><div class="t1">${esc(s.start.replace(/ /g,''))}</div><div class="t2">${esc((s.end||'').replace(/ /g,''))}</div></div>
+        <div style="flex:1; min-width:0; cursor:pointer;" onclick="openSheet('${s.id}')">
+          <div style="display:flex; gap:8px; justify-content:space-between; align-items:flex-start;">
+            <div class="title" style="font-size:14px; font-weight:600;">${esc(s.title)}</div>
+            ${clash?'<span class="conflict">overlap</span>':''}
+          </div>
+          <div class="meta" style="font-size:12px; color:var(--ink-soft);">${esc(s.room||'')}${s.speaker?' \u00b7 '+esc(s.speaker):''} <span class="chip" style="background:${bg}; color:${fg}; margin-left:4px;">${esc(s.track||'General')}</span></div>
+          ${notes[s.id]&&notes[s.id].length?'<div class="meta" style="font-size:12px; margin-top:3px;">\u270e '+esc(notes[s.id][0])+(notes[s.id].length>1?' \u00b7 +'+(notes[s.id].length-1)+' more':'')+'</div>':''}
+        </div>
+        <button class="pick" style="width:30px; height:30px; font-size:14px;" aria-label="Remove" onclick="togglePick('${s.id}')">\u2715</button>
+      </div>`;
+    });
+  });
+  body.innerHTML = html + '<div style="height:24px"></div>';
+}
+
+/* ================= SESSION SHEET ================= */
+let sheetId = null, editing = false;
+function openSheet(id){ sheetId = id; editing = false; renderSheet(); document.getElementById('sheetwrap').classList.add('open'); }
+function closeSheet(){ document.getElementById('sheetwrap').classList.remove('open'); if(curScreen==='full') renderFull(); else if(curScreen==='plan') renderPlan(); }
+function renderSheet(){
+  const s = conf.sessions.find(x=>x.id===sheetId);
+  if(!s) return;
+  const [bg,fg] = trackClass(s.track);
+  const isPicked = picked.has(s.id);
+  const myNotes = notes[s.id] || [];
+  const el = document.getElementById('sheet');
+  if(editing){
+    el.innerHTML = `<div class="handle"></div>
+      <h3 style="font-size:17px;">Edit session</h3>
+      ${s.flag?`<div class="flagcard">\u26a0\ufe0e ${esc(s.flag)} \u2014 fix below and save to confirm.</div>`:''}
+      <div class="field"><label>Title</label><input id="e-title" value="${esc(s.title)}"></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div class="field"><label>Starts</label><input id="e-start" value="${esc(s.start)}"></div>
+        <div class="field"><label>Ends</label><input id="e-end" value="${esc(s.end||'')}"></div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div class="field"><label>Room</label><input id="e-room" value="${esc(s.room||'')}"></div>
+        <div class="field"><label>Track</label><input id="e-track" value="${esc(s.track||'')}"></div>
+      </div>
+      <div class="field"><label>Speakers</label><input id="e-speaker" value="${esc(s.speaker||'')}"></div>
+      <button class="btn primary" style="margin-top:16px;" onclick="saveEdit()">Save and confirm</button>
+      <div style="display:flex; justify-content:space-between; margin-top:12px;">
+        <button style="font-size:13px; color:var(--ink-mute);" onclick="editing=false;renderSheet()">Cancel</button>
+        <button style="font-size:13px; color:var(--bad);" onclick="removeSession()">Remove session</button>
+      </div>`;
+    return;
+  }
+  el.innerHTML = `<div class="handle"></div>
+    <div style="display:flex; gap:10px; justify-content:space-between; align-items:flex-start;">
+      <h3 style="font-size:18px; line-height:1.3;">${esc(s.title)}</h3>
+      <span class="chip" style="background:${bg}; color:${fg}; margin-top:4px;">${esc(s.track||'General')}</span>
+    </div>
+    <p class="mono" style="font-size:13px; margin-top:6px;">${esc(s.start)}${s.end?' \u2013 '+esc(s.end):''}</p>
+    <p class="sub" style="margin-top:2px;">${esc(s.room||'Room TBC')}${s.speaker?' \u00b7 '+esc(s.speaker):''}${s.type?' \u00b7 '+esc(s.type):''}</p>
+    ${s.flag?`<div class="flagcard">\u26a0\ufe0e ${esc(s.flag)} <button style="text-decoration:underline; font-weight:600; color:inherit;" onclick="editing=true;renderSheet()">Fix</button></div>`:''}
+    ${s.desc?`<p style="font-size:14px; margin-top:12px; color:var(--ink-soft);">${esc(s.desc)}</p>`:''}
+    <button class="btn ${isPicked?'ghost':'primary'}" style="margin-top:16px;" onclick="togglePick('${s.id}');renderSheet()">${isPicked?'\u2713 In your plan \u2014 tap to remove':'+ Add to my plan'}</button>
+    <div class="field"><label>Your notes</label></div>
+    <ul class="notes" id="notelist">${myNotes.map((n,i)=>`<li>${esc(n)} <button aria-label="Delete note" style="color:var(--ink-mute); font-size:12px;" onclick="delNote(${i})">\u2715</button></li>`).join('')}</ul>
+    ${myNotes.length?'':'<p class="sub">Questions to ask, things to remember, people to find.</p>'}
+    <div class="noterow">
+      <input id="newnote" placeholder="Add a note\u2026" onkeydown="if(event.key==='Enter')addNote()">
+      <button class="btn small" style="background:var(--ink); color:#fff; border-radius:8px;" onclick="addNote()">Add</button>
+    </div>
+    <button style="font-size:13px; color:var(--ink-mute); margin-top:16px; text-decoration:underline;" onclick="editing=true;renderSheet()">Edit session details</button>`;
+}
+function addNote(){
+  const inp = document.getElementById('newnote');
+  const v = inp.value.trim();
+  if(!v) return;
+  (notes[sheetId] = notes[sheetId] || []).push(v);
+  inp.value = '';
+  save();
+  renderSheet();
+}
+function delNote(i){ notes[sheetId].splice(i,1); save(); renderSheet(); }
+function saveEdit(){
+  const s = conf.sessions.find(x=>x.id===sheetId);
+  s.title = document.getElementById('e-title').value;
+  s.start = document.getElementById('e-start').value;
+  s.end = document.getElementById('e-end').value;
+  s.room = document.getElementById('e-room').value;
+  s.track = document.getElementById('e-track').value;
+  s.speaker = document.getElementById('e-speaker').value;
+  delete s.flag;
+  save();
+  editing = false; renderSheet(); toast('Saved');
+}
+function removeSession(){
+  if(!confirm('Remove this session from the schedule entirely?')) return;
+  conf.sessions = conf.sessions.filter(x=>x.id!==sheetId);
+  picked.delete(sheetId);
+  save();
+  closeSheet(); toast('Session removed');
+}
+
+/* ================= ICS EXPORT ================= */
+function exportICS(){
+  const mine = conf ? conf.sessions.filter(s=>picked.has(s.id)) : [];
+  if(!mine.length){ toast('Pick some sessions first'); return; }
+  const base = new Date(); base.setHours(0,0,0,0);
+  const pad = n=>String(n).padStart(2,'0');
+  let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Conference Companion//EN\r\n';
+  mine.forEach(s=>{
+    const day = new Date(base); day.setDate(day.getDate()+s.d);
+    const ds = new Date(day); const sm = toMin(s.start); ds.setMinutes(sm);
+    const de = new Date(day); de.setMinutes(toMin(s.end||s.start)+ (s.end?0:45));
+    const fmt = d=>d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00';
+    ics += 'BEGIN:VEVENT\r\nUID:'+s.id+'@confcompanion\r\nDTSTART:'+fmt(ds)+'\r\nDTEND:'+fmt(de)+'\r\nSUMMARY:'+s.title.replace(/,/g,'\\,')+'\r\nLOCATION:'+(s.room||'').replace(/,/g,'\\,')+'\r\nDESCRIPTION:'+((s.speaker?'Speaker: '+s.speaker+'\\n':'')+(notes[s.id]||[]).map(n=>'\u2022 '+n).join('\\n')).replace(/,/g,'\\,')+'\r\nEND:VEVENT\r\n';
+  });
+  ics += 'END:VCALENDAR';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([ics],{type:'text/calendar'}));
+  a.download = (conf.name||'my-plan').toLowerCase().replace(/\s+/g,'-')+'.ics';
+  a.click();
+  toast('Calendar file downloaded');
+}
+</script>
+</body>
+</html>
