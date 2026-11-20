@@ -31,11 +31,14 @@ export async function onRequestPost(context) {
       // text, find likely schedule images and transcribe them.
       if (raw.length < MIN_TEXT && env.AI) {
         const imgs = findScheduleImages(html, target);
+        const opts = { model: body.visionModel, mode: body.visionMode, debug: !!body.debugVision };
         let read = "";
         for (const src of imgs) {
-          const t = await readImage(env, src);
+          const t = await readImage(env, src, opts);
           if (t) read += "\n\n" + t;
         }
+        // TEMPORARY: return just the transcript when comparing models
+        if (opts.debug) return json({ images: imgs, transcript: read }, 200);
         if (read) raw = raw + read;
       }
     }
@@ -113,7 +116,36 @@ function findScheduleImages(html, base) {
 }
 
 // Ask a vision model to transcribe a schedule image to plain text.
-async function readImage(env, src) {
+// TEMPORARY: lets us compare vision models/prompts on the live site.
+const VISION_MODELS = [
+  "@cf/meta/llama-4-scout-17b-16e-instruct",
+  "@cf/mistralai/mistral-small-3.1-24b-instruct",
+];
+const VISION_PROMPTS = {
+  rows:
+    "If this image is a conference schedule or agenda, transcribe it as plain text. " +
+    "If it is a grid, first list the column headers (rooms) left to right. Then go row " +
+    "by row: for each time, go through every column in order and write one line per " +
+    "cell: time | room (that column's header) | speaker | title. If a cell is empty, " +
+    "write time | room | (empty). Never move a session into a neighbouring column. " +
+    "Rows that span the whole width (breaks) get one line: time | all rooms | title. " +
+    "Include the conference name, and the date only if one is actually shown. " +
+    "If it is not a schedule, reply with only NONE.",
+  columns:
+    "If this image is a conference schedule or agenda, transcribe it as plain text. " +
+    "If it is a grid with rooms as columns, first list the column headers left to right " +
+    "and count them. Then handle ONE column at a time, starting with the leftmost room " +
+    "column: write the room name as a heading, then go down that column only and write " +
+    "one line per filled cell: time (read from the time column on the left, same row) | " +
+    "speaker | title. Write nothing for empty cells. Many columns are mostly empty; that " +
+    "is normal. Afterwards list rows that span the whole width (breaks) as time | title. " +
+    "Include the conference name, and the date only if one is actually shown. " +
+    "If it is not a schedule, reply with only NONE.",
+};
+
+async function readImage(env, src, opts = {}) {
+  const model = VISION_MODELS.includes(opts.model) ? opts.model : VISION_MODEL;
+  const prompt = VISION_PROMPTS[opts.mode] || VISION_PROMPTS.rows;
   try {
     // Ask for JPEG/PNG: CDNs often serve WebP otherwise
     const res = await fetch(src, {
@@ -125,19 +157,11 @@ async function readImage(env, src) {
     const buf = await res.arrayBuffer();
     if (buf.byteLength > MAX_IMAGE_BYTES) return "";
     const dataUrl = "data:" + type.split(";")[0] + ";base64," + toBase64(buf);
-    const ai = await env.AI.run(VISION_MODEL, {
+    const ai = await env.AI.run(model, {
       messages: [{
         role: "user",
         content: [
-          { type: "text", text:
-            "If this image is a conference schedule or agenda, transcribe it as plain text. " +
-            "If it is a grid, first list the column headers (rooms) left to right. Then go row " +
-            "by row: for each time, go through every column in order and write one line per " +
-            "cell: time | room (that column's header) | speaker | title. If a cell is empty, " +
-            "write time | room | (empty). Never move a session into a neighbouring column. " +
-            "Rows that span the whole width (breaks) get one line: time | all rooms | title. " +
-            "Include the conference name, and the date only if one is actually shown. " +
-            "If it is not a schedule, reply with only NONE." },
+          { type: "text", text: prompt },
           { type: "image_url", image_url: { url: dataUrl } },
         ],
       }],
@@ -146,8 +170,8 @@ async function readImage(env, src) {
     const out = ai && ai.response !== undefined ? ai.response : ai;
     const text = typeof out === "string" ? out : JSON.stringify(out || "");
     return /^\s*NONE\b/i.test(text) ? "" : text.trim();
-  } catch (_) {
-    return "";
+  } catch (err) {
+    return opts.debug ? "ERROR: " + String(err && err.message || err) : "";
   }
 }
 
