@@ -15,7 +15,7 @@ export async function onRequestPost(context) {
   try {
     const body = await request.json();
     let raw = (body.text || "").trim();
-    let imageRooms = null; // speaker -> room, read straight from an image transcript
+    let imageSessions = null; // speaker -> {room, title}, read straight from an image transcript
 
     // Fetch the schedule page server-side (no CORS restriction here)
     if (body.url) {
@@ -39,7 +39,7 @@ export async function onRequestPost(context) {
         }
         // Drop "(empty)" cell lines: they only confuse the text parser
         read = read.split("\n").filter((l) => !/\|\s*\(empty\)\s*\|?\s*$/i.test(l)).join("\n");
-        imageRooms = roomsFromTranscript(read);
+        imageSessions = sessionsFromTranscript(read);
         if (read) raw = raw + read;
       }
     }
@@ -77,12 +77,14 @@ export async function onRequestPost(context) {
     if (!parsed || !parsed.sessions || !parsed.sessions.length) {
       return json({ error: "no sessions found" }, 422);
     }
-    // The text model sometimes shifts sessions between grid columns, so
-    // trust the room the image transcript gave for each speaker.
-    if (imageRooms && imageRooms.size) {
+    // The text model sometimes shifts sessions between grid columns or
+    // shortens titles, so trust the image transcript for each speaker.
+    if (imageSessions && imageSessions.size) {
       for (const s of parsed.sessions) {
-        const room = imageRooms.get(normName(s.speaker));
-        if (room) s.room = room;
+        const t = imageSessions.get(normName(s.speaker));
+        if (!t) continue;
+        s.room = t.room;
+        if (t.title) s.title = t.title;
       }
     }
     if (!parsed.days || !parsed.days.length) {
@@ -95,16 +97,16 @@ export async function onRequestPost(context) {
   }
 }
 
-// From "time | room | speaker | title" lines, map each speaker to their room.
-// A speaker listed in more than one room is left out (ambiguous).
-function roomsFromTranscript(text) {
+// From "time | room | speaker | title" lines, map each speaker to their
+// room and full title. A speaker listed more than once is left out (ambiguous).
+function sessionsFromTranscript(text) {
   const map = new Map();
   for (const line of text.split("\n")) {
     const f = line.split("|").map((x) => x.replace(/\*+/g, "").trim());
     if (f.length < 4 || !/\d{1,2}[:.]\d{2}/.test(f[0])) continue;
-    const room = f[1], speaker = normName(f[2]);
+    const room = f[1], speaker = normName(f[2]), title = f.slice(3).filter(Boolean).join(" | ");
     if (!room || !speaker || /^all rooms$/i.test(room)) continue;
-    map.set(speaker, map.has(speaker) && map.get(speaker) !== room ? null : room);
+    map.set(speaker, map.has(speaker) ? null : { room, title });
   }
   for (const [k, v] of map) if (!v) map.delete(k);
   return map;
