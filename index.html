@@ -124,6 +124,20 @@ nav#tabs svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-wid
         <span class="sub" style="text-transform:uppercase; letter-spacing:.04em; font-size:11px;">or</span>
         <div style="flex:1; height:1px; background:var(--line);"></div>
       </div>
+      <p style="font-size:13px; font-weight:600; margin-top:16px;">Use a photo or screenshot</p>
+      <p class="sub" style="margin:2px 0 8px;">Snap the printed programme or a slide, or upload a screenshot of the schedule.</p>
+      <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        <label class="btn ghost" id="camerabtn" style="flex:1 1 200px; cursor:pointer; white-space:nowrap;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg>
+          Take a photo
+          <input type="file" accept="image/*" capture="environment" hidden onchange="pickImage(this)">
+        </label>
+        <label class="btn ghost" style="flex:1 1 200px; cursor:pointer; white-space:nowrap;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+          Upload a screenshot
+          <input type="file" accept="image/*" hidden onchange="pickImage(this)">
+        </label>
+      </div>
       <button class="btn ghost" style="margin-top:16px;" onclick="loadSample()">Sample: T026 Firebrand conference</button>
     </div>
     <footer style="padding:28px 4px 12px; text-align:center; font-size:11.5px; color:var(--ink-mute); line-height:1.6;">
@@ -266,10 +280,46 @@ function adoptConf(c){
   document.getElementById('tabs').style.display = 'flex';
   showScreen('full');
 }
-async function startParse(){
-  const raw = document.getElementById('rawtext').value.trim();
-  const url = (document.getElementById('rawurl')||{value:''}).value.trim();
-  if(!raw && !url){ toast('Paste a link or the schedule text first'); return; }
+// Camera only makes sense on touch devices; desktops get the upload button
+if(!matchMedia('(pointer:coarse)').matches){ const cb = document.getElementById('camerabtn'); if(cb) cb.style.display = 'none'; }
+
+// Shrink a photo/screenshot in the browser so uploads stay small and fast.
+// Tall screenshots keep more height so small text stays readable.
+function shrinkImage(file){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      const maxW = 1600, maxH = 3200;
+      const scale = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * scale);
+      c.height = Math.round(img.naturalHeight * scale);
+      const g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); // flatten transparent PNGs
+      g.drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('unreadable image')); };
+    img.src = url;
+  });
+}
+async function pickImage(input){
+  const file = input.files && input.files[0];
+  input.value = ''; // let the same file be picked again
+  if(!file) return;
+  let dataUrl;
+  try{ dataUrl = await shrinkImage(file); }
+  catch(e){ toast('Couldn’t open that image. Try a JPEG or PNG.'); return; }
+  startParse(dataUrl);
+}
+
+async function startParse(image){
+  if(typeof image !== 'string') image = null;
+  const raw = image ? '' : document.getElementById('rawtext').value.trim();
+  const url = image ? '' : (document.getElementById('rawurl')||{value:''}).value.trim();
+  if(!image && !raw && !url){ toast('Paste a link or the schedule text first'); return; }
   document.getElementById('inputbox').style.display = 'none';
   const pb = document.getElementById('parsebox'); pb.style.display = 'block';
   const steps = ['st1','st2','st3','st4'];
@@ -302,12 +352,17 @@ async function startParse(){
   try{
     const r = await fetch('/api/parse', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(url ? {url} : {text: raw})
+      body: JSON.stringify(image ? {image} : url ? {url} : {text: raw})
     });
     if(r.ok){
       const parsed = await r.json();
       if(parsed && parsed.sessions && parsed.sessions.length){ finish(parsed); return; }
-      serverDetail = 'The reader found no sessions on that page.';
+      serverDetail = image ? 'No sessions found in that image.' : 'The reader found no sessions on that page.';
+    } else if(image && (r.status === 422 || r.status === 413 || r.status === 400)){
+      let msg = ''; try{ msg = (await r.json()).error || ''; }catch(e){ }
+      serverDetail = r.status === 413 ? 'That image is too large.'
+        : /no schedule/.test(msg) ? 'That image doesn’t look like a schedule.'
+        : 'Couldn’t read a schedule from that image.';
     } else if(r.status === 404 || r.status === 405 && false){
       serverDetail = 'Parse service not found (404) — the functions folder may be missing from the deployment.';
     } else {
@@ -317,6 +372,10 @@ async function startParse(){
       else serverDetail = 'Server error ' + r.status + (msg ? ' — ' + msg : '') + '.';
     }
   }catch(e){ serverDetail = 'Couldn\u2019t reach the parse service (offline or preview mode).'; }
+  if(image){
+    fail(serverDetail + ' Try a sharper, straight-on photo with the whole schedule in frame, or paste the text instead.');
+    return;
+  }
   if(!raw){
     fail(serverDetail + ' You can also paste the page text instead of the link.');
     return;

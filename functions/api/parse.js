@@ -37,11 +37,22 @@ export async function onRequestPost(context) {
           const t = await readImage(env, src);
           if (t) read += "\n\n" + t;
         }
-        // Drop "(empty)" cell lines: they only confuse the text parser
-        read = read.split("\n").filter((l) => !/\|\s*\(empty\)\s*\|?\s*$/i.test(l)).join("\n");
+        read = dropEmptyCells(read);
         imageSessions = sessionsFromTranscript(read);
         if (read) raw = raw + read;
       }
+    }
+
+    // A photo or screenshot uploaded from the app, as a data: URL
+    if (body.image) {
+      if (!env.AI) return json({ error: "AI binding missing" }, 500);
+      const img = String(body.image);
+      if (!/^data:image\/(jpeg|png|webp);base64,/.test(img)) return json({ error: "unsupported image" }, 400);
+      if (img.length > MAX_IMAGE_BYTES * 1.37) return json({ error: "image too large" }, 413);
+      const read = dropEmptyCells(await transcribeImage(env, img));
+      if (!read) return json({ error: "no schedule found in image" }, 422);
+      imageSessions = sessionsFromTranscript(read);
+      raw = read;
     }
 
     if (!raw) return json({ error: "empty" }, 400);
@@ -112,6 +123,11 @@ function sessionsFromTranscript(text) {
   return map;
 }
 
+// Drop "(empty)" grid-cell lines: they only confuse the text parser
+function dropEmptyCells(text) {
+  return String(text || "").split("\n").filter((l) => !/\|\s*\(empty\)\s*\|?\s*$/i.test(l)).join("\n");
+}
+
 function normName(s) {
   return String(s || "").toLowerCase().replace(/[^a-z]/g, "");
 }
@@ -157,13 +173,22 @@ async function readImage(env, src) {
     if (!res.ok || !/^image\/(jpeg|png|webp|gif)/.test(type)) return "";
     const buf = await res.arrayBuffer();
     if (buf.byteLength > MAX_IMAGE_BYTES) return "";
-    const dataUrl = "data:" + type.split(";")[0] + ";base64," + toBase64(buf);
+    return await transcribeImage(env, "data:" + type.split(";")[0] + ";base64," + toBase64(buf));
+  } catch (_) {
+    return "";
+  }
+}
+
+// Ask a vision model to transcribe a schedule image (as a data: URL) to text.
+async function transcribeImage(env, dataUrl) {
+  try {
     const ai = await env.AI.run(VISION_MODEL, {
       messages: [{
         role: "user",
         content: [
           { type: "text", text:
-            "If this image is a conference schedule or agenda, transcribe it as plain text. " +
+            "If this image is a conference schedule or agenda (a screenshot, or a photo that " +
+            "may be at an angle), transcribe it as plain text. " +
             "If it is a grid, first list the column headers (rooms) left to right. Then go row " +
             "by row: for each time, go through every column in order and write one line per " +
             "cell: time | room (that column's header) | speaker | title. If a cell is empty, " +
