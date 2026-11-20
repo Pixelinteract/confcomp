@@ -5,6 +5,10 @@
 
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_INPUT = 12000;
+const VISION_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+const MIN_TEXT = 600;      // below this, the page probably shows its schedule as an image
+const MAX_IMAGES = 2;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -22,6 +26,18 @@ export async function onRequestPost(context) {
       });
       const html = await page.text();
       raw = htmlToText(html);
+
+      // Some sites post the schedule as an image. If the page has little
+      // text, find likely schedule images and transcribe them.
+      if (raw.length < MIN_TEXT && env.AI) {
+        const imgs = findScheduleImages(html, target);
+        let read = "";
+        for (const src of imgs) {
+          const t = await readImage(env, src);
+          if (t) read += "\n\n" + t;
+        }
+        if (read) raw = raw + read;
+      }
     }
 
     if (!raw) return json({ error: "empty" }, 400);
@@ -62,6 +78,78 @@ export async function onRequestPost(context) {
   } catch (err) {
     return json({ error: String(err && err.message || err) }, 500);
   }
+}
+
+// Collect image URLs from the page, schedule-looking ones first.
+// Skips logos, icons and SVGs.
+function findScheduleImages(html, base) {
+  const seen = new Map();
+  const re = /<img\b[^>]*>|data-(?:src|image)="[^"]+"/gi;
+  let m;
+  while ((m = re.exec(html))) {
+    const tag = m[0];
+    const srcM = tag.match(/data-(?:src|image)="([^"]+)"/i) || tag.match(/\bsrc="([^"]+)"/i);
+    if (!srcM) continue;
+    let url;
+    try { url = new URL(srcM[1].replace(/&amp;/g, "&"), base); } catch (_) { continue; }
+    if (!/^https?:$/.test(url.protocol)) continue;
+    const key = url.origin + url.pathname;
+    if (/\.svg$|logo|icon|favicon|avatar/i.test(key)) continue;
+    const alt = (tag.match(/\balt="([^"]*)"/i) || [])[1] || "";
+    const hint = /schedule|agenda|program|timetable|itinerary/i.test(key + " " + alt);
+    const prev = seen.get(key);
+    if (!prev || (hint && !prev.hint)) seen.set(key, { url, hint });
+  }
+  const list = [...seen.values()];
+  const hinted = list.filter((x) => x.hint);
+  return (hinted.length ? hinted : list).slice(0, MAX_IMAGES).map(({ url }) => {
+    // Squarespace serves resized images; 1500px keeps text readable but small
+    if (/squarespace-cdn\.com$/.test(url.hostname)) url.search = "?format=1500w";
+    return url.toString();
+  });
+}
+
+// Ask a vision model to transcribe a schedule image to plain text.
+async function readImage(env, src) {
+  try {
+    // Ask for JPEG/PNG: CDNs often serve WebP otherwise
+    const res = await fetch(src, {
+      headers: { Accept: "image/jpeg,image/png;q=0.9" },
+      cf: { cacheTtl: 3600 },
+    });
+    const type = res.headers.get("content-type") || "";
+    if (!res.ok || !/^image\/(jpeg|png|webp|gif)/.test(type)) return "";
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength > MAX_IMAGE_BYTES) return "";
+    const dataUrl = "data:" + type.split(";")[0] + ";base64," + toBase64(buf);
+    const ai = await env.AI.run(VISION_MODEL, {
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text:
+            "If this image is a conference schedule or agenda, transcribe it as plain text, " +
+            "one session per line: time | room | speaker | title. Include breaks. Include the " +
+            "conference name and date if shown. If it is not a schedule, reply with only NONE." },
+          { type: "image_url", image_url: { url: dataUrl } },
+        ],
+      }],
+      max_tokens: 2048,
+    });
+    const out = ai && ai.response !== undefined ? ai.response : ai;
+    const text = typeof out === "string" ? out : JSON.stringify(out || "");
+    return /^\s*NONE\b/i.test(text) ? "" : text.trim();
+  } catch (_) {
+    return "";
+  }
+}
+
+function toBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
 }
 
 // Crude but effective HTML -> text for schedule pages
