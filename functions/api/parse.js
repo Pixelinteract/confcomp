@@ -5,7 +5,7 @@
 
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_INPUT = 12000;
-const VISION_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+const VISION_MODEL = "@cf/mistralai/mistral-small-3.1-24b-instruct"; // read UX Camp grid rooms correctly where Llama 4 Scout did not
 const MIN_TEXT = 600;      // below this, the page probably shows its schedule as an image
 const MAX_IMAGES = 2;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -15,6 +15,7 @@ export async function onRequestPost(context) {
   try {
     const body = await request.json();
     let raw = (body.text || "").trim();
+    let imageRooms = null; // speaker -> room, read straight from an image transcript
 
     // Fetch the schedule page server-side (no CORS restriction here)
     if (body.url) {
@@ -36,6 +37,9 @@ export async function onRequestPost(context) {
           const t = await readImage(env, src);
           if (t) read += "\n\n" + t;
         }
+        // Drop "(empty)" cell lines: they only confuse the text parser
+        read = read.split("\n").filter((l) => !/\|\s*\(empty\)\s*\|?\s*$/i.test(l)).join("\n");
+        imageRooms = roomsFromTranscript(read);
         if (read) raw = raw + read;
       }
     }
@@ -73,6 +77,14 @@ export async function onRequestPost(context) {
     if (!parsed || !parsed.sessions || !parsed.sessions.length) {
       return json({ error: "no sessions found" }, 422);
     }
+    // The text model sometimes shifts sessions between grid columns, so
+    // trust the room the image transcript gave for each speaker.
+    if (imageRooms && imageRooms.size) {
+      for (const s of parsed.sessions) {
+        const room = imageRooms.get(normName(s.speaker));
+        if (room) s.room = room;
+      }
+    }
     if (!parsed.days || !parsed.days.length) {
       const maxD = Math.max(...parsed.sessions.map((s) => s.d || 0));
       parsed.days = Array.from({ length: maxD + 1 }, (_, i) => ({ label: "Day " + (i + 1) }));
@@ -81,6 +93,25 @@ export async function onRequestPost(context) {
   } catch (err) {
     return json({ error: String(err && err.message || err) }, 500);
   }
+}
+
+// From "time | room | speaker | title" lines, map each speaker to their room.
+// A speaker listed in more than one room is left out (ambiguous).
+function roomsFromTranscript(text) {
+  const map = new Map();
+  for (const line of text.split("\n")) {
+    const f = line.split("|").map((x) => x.replace(/\*+/g, "").trim());
+    if (f.length < 4 || !/\d{1,2}[:.]\d{2}/.test(f[0])) continue;
+    const room = f[1], speaker = normName(f[2]);
+    if (!room || !speaker || /^all rooms$/i.test(room)) continue;
+    map.set(speaker, map.has(speaker) && map.get(speaker) !== room ? null : room);
+  }
+  for (const [k, v] of map) if (!v) map.delete(k);
+  return map;
+}
+
+function normName(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z]/g, "");
 }
 
 // Collect image URLs from the page, schedule-looking ones first.
