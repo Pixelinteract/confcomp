@@ -45,11 +45,14 @@ export async function onRequestPost(context) {
 
     const prompt =
       'Parse this conference schedule into JSON. Respond with ONLY valid JSON, no markdown fences, no preamble. ' +
-      'Shape: {"name":"conference name","days":[{"label":"short day label like Mon 14 Sep"}],' +
+      'Shape: {"name":"conference name","days":[{"label":"short day label, e.g. weekday and date"}],' +
       '"sessions":[{"d":0,"start":"9:00 am","end":"10:00 am","title":"","room":"","speaker":"","track":"",' +
       '"type":"Talk|Workshop|Keynote|Panel|Discussion|Masterclass|Showcase|Break","desc":"one short sentence",' +
       '"flag":"only include if something was missing or ambiguous: brief note of what you assumed"}]}. ' +
-      'd is the day index into days. Omit flag when confident. If an end time is missing, estimate it from ' +
+      'd is the day index into days. Only use a date or weekday that appears in the schedule; ' +
+      'never invent one. If no date is given, label days "Day 1", "Day 2" and so on. ' +
+      'Skip "(empty)" cells; they are not sessions. Keep each session in the room it is listed under. ' +
+      'Omit flag when confident. If an end time is missing, estimate it from ' +
       'surrounding sessions and add a flag saying so. Keep desc under 15 words. Ignore navigation menus, ' +
       'footers, FAQs and newsletter forms. Schedule:\n\n' + raw;
 
@@ -127,9 +130,14 @@ async function readImage(env, src) {
         role: "user",
         content: [
           { type: "text", text:
-            "If this image is a conference schedule or agenda, transcribe it as plain text, " +
-            "one session per line: time | room | speaker | title. Include breaks. Include the " +
-            "conference name and date if shown. If it is not a schedule, reply with only NONE." },
+            "If this image is a conference schedule or agenda, transcribe it as plain text. " +
+            "If it is a grid, first list the column headers (rooms) left to right. Then go row " +
+            "by row: for each time, go through every column in order and write one line per " +
+            "cell: time | room (that column's header) | speaker | title. If a cell is empty, " +
+            "write time | room | (empty). Never move a session into a neighbouring column. " +
+            "Rows that span the whole width (breaks) get one line: time | all rooms | title. " +
+            "Include the conference name, and the date only if one is actually shown. " +
+            "If it is not a schedule, reply with only NONE." },
           { type: "image_url", image_url: { url: dataUrl } },
         ],
       }],
