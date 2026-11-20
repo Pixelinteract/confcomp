@@ -313,7 +313,7 @@ async function startParse(){
     } else {
       let msg = ''; try{ msg = (await r.json()).error || ''; }catch(e){ }
       if(r.status === 404) serverDetail = 'Parse service not found (404) — the functions folder may be missing from the deployment.';
-      else if(/AI|undefined|binding/i.test(msg)) serverDetail = 'The AI binding looks missing — add a Workers AI binding named AI in the project settings, then retry the deployment. (Server said: ' + msg + ')';
+      else if(/AI binding missing|reading 'run'|AI is not defined/.test(msg)) serverDetail = 'The AI binding looks missing — add a Workers AI binding named AI in the project settings, then retry the deployment. (Server said: ' + msg + ')';
       else serverDetail = 'Server error ' + r.status + (msg ? ' — ' + msg : '') + '.';
     }
   }catch(e){ serverDetail = 'Couldn\u2019t reach the parse service (offline or preview mode).'; }

@@ -37,13 +37,20 @@ export async function onRequestPost(context) {
       'surrounding sessions and add a flag saying so. Keep desc under 15 words. Ignore navigation menus, ' +
       'footers, FAQs and newsletter forms. Schedule:\n\n' + raw;
 
+    if (!env.AI) return json({ error: "AI binding missing" }, 500);
+
     const ai = await env.AI.run(MODEL, {
       messages: [{ role: "user", content: prompt }],
       max_tokens: 4096,
     });
 
-    const text = (ai.response || "").trim();
-    const parsed = extractJSON(text);
+    // Workers AI may return `response` as a string, or as an already-parsed
+    // object when the model's output is valid JSON. Handle both.
+    const out = ai && ai.response !== undefined ? ai.response : ai;
+    const parsed =
+      out && typeof out === "object" && out.sessions
+        ? out
+        : extractJSON(typeof out === "string" ? out : JSON.stringify(out || ""));
     if (!parsed || !parsed.sessions || !parsed.sessions.length) {
       return json({ error: "no sessions found" }, 422);
     }
