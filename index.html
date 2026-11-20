@@ -20,6 +20,9 @@
   --t-ai:#FBEAF0; --t-ai-ink:#72243E;
   --t-other:#F1EFE8; --t-other-ink:#444441;
   --radius:10px;
+  --photo-bg:#FAEEDA; --photo-fg:#EF9F27; --photo-ink:#854F0B;
+  --link-bg:#E6F1FB; --link-fg:#378ADD; --link-ink:#185FA5;
+  --text-bg:#EEEDFE; --text-fg:#7F77DD; --text-ink:#534AB7;
 }
 *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
 html,body{height:100%;}
@@ -83,6 +86,29 @@ nav#tabs svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-wid
 .conflict{font-size:11px; font-weight:600; color:var(--warn); background:var(--warn-bg); border:1px solid var(--warn-line); padding:2px 8px; border-radius:99px;}
 .listrow{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); align-items:flex-start;}
 .dayhead{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; padding:20px 0 4px;}
+.src{background:var(--card); border:1px solid var(--line); border-radius:14px; margin-bottom:10px; transition:border-color .15s, box-shadow .15s;}
+.src.open{border-color:var(--c-fg); box-shadow:0 0 0 1px var(--c-fg);}
+.src-head{display:flex; align-items:center; gap:14px; width:100%; padding:14px; text-align:left;}
+.src-ic{width:48px; height:48px; border-radius:50%; background:var(--c-bg); color:var(--c-ink); display:flex; align-items:center; justify-content:center; flex:none;}
+.src-ic svg{width:24px; height:24px;}
+.src-txt{flex:1; min-width:0;}
+.src-txt b{display:block; font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:700; letter-spacing:-0.01em;}
+.src-txt small{display:block; font-size:12.5px; color:var(--ink-mute); line-height:1.35;}
+.src-chev{flex:none; color:var(--ink-mute); transition:transform .2s;}
+.src.open .src-chev{transform:rotate(180deg); color:var(--c-ink);}
+.src-body{display:none; padding:0 14px 14px;}
+.src.open .src-body{display:block;}
+.src.open input:focus,.src.open textarea:focus{border-color:var(--c-ink); box-shadow:0 0 0 3px var(--c-bg);}
+.pick-row{display:flex; flex-wrap:wrap; gap:8px;}
+.pick-btn{flex:1 1 150px; display:flex; align-items:center; justify-content:center; gap:8px; padding:13px 12px; border-radius:10px; background:var(--c-bg); color:var(--c-ink); font-weight:600; font-size:14.5px; cursor:pointer; white-space:nowrap;}
+.pick-btn svg{width:20px; height:20px;}
+.pick-btn:active{transform:scale(.98);}
+.photoprev{display:none; align-items:center; gap:12px; padding:8px; border-radius:10px; background:var(--c-bg);}
+.photoprev img{width:56px; height:56px; object-fit:cover; border-radius:8px; flex:none; background:#fff;}
+.photoprev .src-txt b{font-size:14.5px; color:var(--c-ink);}
+.has-image .pick-row{display:none;} .has-image .photoprev{display:flex;}
+.btn.sample{width:100%; margin-top:10px; border:1px dashed var(--line-strong); color:var(--ink-soft); font-weight:500; font-size:14px;}
+.sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
 .parsebox{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px;}
 .steps{list-style:none; margin-top:14px;}
 .steps li{display:flex; gap:10px; align-items:center; padding:5px 0; font-size:13.5px; color:var(--ink-mute);}
@@ -108,37 +134,54 @@ nav#tabs svg{width:19px; height:19px; stroke:currentColor; fill:none; stroke-wid
     <h1><span>Conference Companion</span></h1>
   </header>
   <main style="padding:8px 20px 88px;">
-    <p class="sub" style="margin-bottom:18px;">Paste any conference schedule. Get a personal agenda you can actually follow.</p>
-    <div class="parsebox" id="inputbox">
-      <label for="rawurl" style="font-size:13px; font-weight:600;">Schedule link</label>
-      <p class="sub" style="margin:2px 0 8px;">Paste the URL of the conference program page.</p>
-      <input id="rawurl" type="url" placeholder="https://conference.com/program" style="margin-bottom:14px;">
-      <label for="rawtext" style="font-size:13px; font-weight:600;">Or paste the schedule text</label>
-      <p class="sub" style="margin:2px 0 8px;">Copy everything from the programme — messy formatting is fine.</p>
-      <textarea id="rawtext" placeholder="Day 1 — Monday&#10;9:00am Opening keynote, Main Hall — Ava Chen&#10;10:15am Design systems at scale (Studio 1)…"></textarea>
-      <div style="display:flex; gap:8px; margin-top:12px;">
-        <button class="btn primary" style="flex:1;" onclick="startParse()">Read my schedule</button>
+    <p class="sub" style="margin-bottom:18px;">Add a conference schedule as a photo, a link or text. Get a personal agenda you can actually follow.</p>
+    <div id="inputbox">
+      <div class="src" data-mode="photo" style="--c-bg:var(--photo-bg); --c-fg:var(--photo-fg); --c-ink:var(--photo-ink);">
+        <button class="src-head" type="button" onclick="setMode('photo')" aria-controls="src-photo">
+          <span class="src-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg></span>
+          <span class="src-txt"><b>Photo or screenshot</b><small>Printed program, a slide or a screenshot</small></span>
+          <svg class="src-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="src-body" id="src-photo">
+          <div class="pick-row" id="pickrow">
+            <label class="pick-btn" id="camerabtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg> Take a photo
+              <input type="file" accept="image/*" capture="environment" hidden onchange="pickImage(this)">
+            </label>
+            <label class="pick-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg> <span id="uploadlabel">Upload a screenshot</span>
+              <input type="file" accept="image/*" hidden onchange="pickImage(this)">
+            </label>
+          </div>
+          <div class="photoprev" id="photoprev">
+            <img id="photoimg" alt="Your schedule image">
+            <span class="src-txt"><b>Image ready</b><small id="photometa"></small></span>
+            <button type="button" class="btn small ghost" onclick="clearImage()">Change</button>
+          </div>
+        </div>
       </div>
-      <div style="display:flex; align-items:center; gap:10px; margin-top:16px;">
-        <div style="flex:1; height:1px; background:var(--line);"></div>
-        <span class="sub" style="text-transform:uppercase; letter-spacing:.04em; font-size:11px;">or</span>
-        <div style="flex:1; height:1px; background:var(--line);"></div>
+      <div class="src" data-mode="link" style="--c-bg:var(--link-bg); --c-fg:var(--link-fg); --c-ink:var(--link-ink);">
+        <button class="src-head" type="button" onclick="setMode('link')" aria-controls="src-link">
+          <span class="src-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4L12 5.6"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg></span>
+          <span class="src-txt"><b>Schedule link</b><small>The conference program page</small></span>
+          <svg class="src-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="src-body" id="src-link">
+          <label for="rawurl" class="sr-only">Schedule link</label>
+          <input id="rawurl" type="url" inputmode="url" placeholder="https://conference.com/program">
+        </div>
       </div>
-      <p style="font-size:13px; font-weight:600; margin-top:16px;">Use a photo or screenshot</p>
-      <p class="sub" style="margin:2px 0 8px;">Snap the printed programme or a slide, or upload a screenshot of the schedule.</p>
-      <div style="display:flex; flex-wrap:wrap; gap:8px;">
-        <label class="btn ghost" id="camerabtn" style="flex:1 1 200px; cursor:pointer; white-space:nowrap;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/></svg>
-          Take a photo
-          <input type="file" accept="image/*" capture="environment" hidden onchange="pickImage(this)">
-        </label>
-        <label class="btn ghost" style="flex:1 1 200px; cursor:pointer; white-space:nowrap;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
-          Upload a screenshot
-          <input type="file" accept="image/*" hidden onchange="pickImage(this)">
-        </label>
+      <div class="src" data-mode="text" style="--c-bg:var(--text-bg); --c-fg:var(--text-fg); --c-ink:var(--text-ink);">
+        <button class="src-head" type="button" onclick="setMode('text')" aria-controls="src-text">
+          <span class="src-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 10h16M4 14h10M4 18h12"/></svg></span>
+          <span class="src-txt"><b>Paste text</b><small>Copied from anywhere, messy is fine</small></span>
+          <svg class="src-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="src-body" id="src-text">
+          <label for="rawtext" class="sr-only">Schedule text</label>
+          <textarea id="rawtext" placeholder="Day 1 — Monday&#10;9:00am Opening keynote, Main Hall — Ava Chen&#10;10:15am Design systems at scale (Studio 1)…"></textarea>
+        </div>
       </div>
-      <button class="btn ghost" style="margin-top:16px;" onclick="loadSample()">Sample: T026 Firebrand conference</button>
+      <button class="btn primary" style="margin-top:6px; padding:15px 18px; font-size:15.5px;" onclick="readSchedule()">Read my schedule</button>
+      <button class="btn sample" onclick="loadSample()">Try the Firebrand sample</button>
     </div>
     <footer style="padding:28px 4px 12px; text-align:center; font-size:11.5px; color:var(--ink-mute); line-height:1.6;">
       Conference Companion © 2026 — the site was created by AI (which you can probably tell) based on 15 minutes of prompting back n forth by <a href="https://www.linkedin.com/in/basilansari/" target="_blank" rel="noopener" style="color:var(--ink-soft); text-decoration:underline;">Baz</a>.
@@ -281,7 +324,47 @@ function adoptConf(c){
   showScreen('full');
 }
 // Camera only makes sense on touch devices; desktops get the upload button
-if(!matchMedia('(pointer:coarse)').matches){ const cb = document.getElementById('camerabtn'); if(cb) cb.style.display = 'none'; }
+if(!matchMedia('(pointer:coarse)').matches){
+  const cb = document.getElementById('camerabtn'); if(cb) cb.style.display = 'none';
+  const ul = document.getElementById('uploadlabel'); if(ul) ul.textContent = 'Choose a screenshot or photo';
+}
+
+// Stacked source cards: one open at a time, remembered between visits
+const SRC_MODES = ['photo','link','text'];
+let srcMode = 'photo';
+try{ const m = localStorage.getItem('confcomp-src'); if(SRC_MODES.includes(m)) srcMode = m; }catch(e){}
+function setMode(m, focus){
+  srcMode = m;
+  document.querySelectorAll('.src').forEach(el=>{
+    const on = el.dataset.mode === m;
+    el.classList.toggle('open', on);
+    el.querySelector('.src-head').setAttribute('aria-expanded', on ? 'true' : 'false');
+  });
+  try{ localStorage.setItem('confcomp-src', m); }catch(e){}
+  if(focus !== false && m === 'link') document.getElementById('rawurl').focus();
+}
+setMode(srcMode, false);
+
+let pendingImage = null;
+function clearImage(){
+  pendingImage = null;
+  document.getElementById('src-photo').classList.remove('has-image');
+  document.getElementById('photoimg').removeAttribute('src');
+}
+function readSchedule(){
+  if(srcMode === 'photo'){
+    if(!pendingImage){ toast('Take a photo or choose a screenshot first'); return; }
+    return startParse({image: pendingImage});
+  }
+  if(srcMode === 'link'){
+    const url = document.getElementById('rawurl').value.trim();
+    if(!url){ toast('Paste the schedule link first'); document.getElementById('rawurl').focus(); return; }
+    return startParse({url});
+  }
+  const text = document.getElementById('rawtext').value.trim();
+  if(!text){ toast('Paste the schedule text first'); document.getElementById('rawtext').focus(); return; }
+  return startParse({text});
+}
 
 // Shrink a photo/screenshot in the browser so uploads stay small and fast.
 // Tall screenshots keep more height so small text stays readable.
@@ -312,14 +395,18 @@ async function pickImage(input){
   let dataUrl;
   try{ dataUrl = await shrinkImage(file); }
   catch(e){ toast('Couldn’t open that image. Try a JPEG or PNG.'); return; }
-  startParse(dataUrl);
+  pendingImage = dataUrl;
+  document.getElementById('photoimg').src = dataUrl;
+  document.getElementById('photometa').textContent = (file.name || 'Photo') + ' \u00b7 tap Read my schedule';
+  document.getElementById('src-photo').classList.add('has-image');
 }
 
-async function startParse(image){
-  if(typeof image !== 'string') image = null;
-  const raw = image ? '' : document.getElementById('rawtext').value.trim();
-  const url = image ? '' : (document.getElementById('rawurl')||{value:''}).value.trim();
-  if(!image && !raw && !url){ toast('Paste a link or the schedule text first'); return; }
+async function startParse(input){
+  input = input || {};
+  const image = input.image || null;
+  const url = (input.url || '').trim();
+  const raw = (input.text || '').trim();
+  if(!image && !raw && !url){ toast('Add your schedule first'); return; }
   document.getElementById('inputbox').style.display = 'none';
   const pb = document.getElementById('parsebox'); pb.style.display = 'block';
   const steps = ['st1','st2','st3','st4'];
